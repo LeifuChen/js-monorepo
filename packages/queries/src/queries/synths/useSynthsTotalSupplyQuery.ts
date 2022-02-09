@@ -1,19 +1,88 @@
-import { ethers } from 'ethers';
 import { useQuery, UseQueryOptions } from 'react-query';
-
-import { NetworkIdByName, Synths } from '@synthetixio/contracts-interface';
 import { wei } from '@synthetixio/wei';
-
 import { QueryContext } from '../../context';
-import { SynthTotalSupply, SynthsTotalSupplyData } from '../../types';
+import useSynthetixQueries from '../../../src/';
 
-const useSynthsTotalSupplyQuery = (
-	ctx: QueryContext,
-	options?: UseQueryOptions<SynthsTotalSupplyData>
-) => {
-	return useQuery<SynthsTotalSupplyData>(
-		['synths', 'totalSupply', ctx.networkId],
+const useSynthsTotalSupplyQuery = (ctx: QueryContext, options?: UseQueryOptions<any>) => {
+	const { subgraph } = useSynthetixQueries();
+
+	const synthsQuery = subgraph.useGetSynths(
+		{
+			first: Number.MAX_SAFE_INTEGER,
+		},
+		{
+			id: true,
+			name: true,
+			symbol: true,
+			totalSupply: true,
+		}
+	);
+
+	const ratesQuery = subgraph.useGetLatestRates(
+		{
+			first: Number.MAX_SAFE_INTEGER,
+		},
+		{ id: true, rate: true }
+	);
+
+	const wrappersQuery = subgraph.useGetWrappers(
+		{
+			first: Number.MAX_SAFE_INTEGER,
+		},
+		{
+			id: true,
+			tokenAddress: true,
+			amount: true,
+			amountInUSD: true,
+			maxAmount: true,
+		}
+	);
+
+	// cant filter on isOpen, error in console
+	const loansQuery = subgraph.useGetLoans(
+		{
+			first: Number.MAX_SAFE_INTEGER,
+			where: { isOpen: true },
+			orderBy: 'collateralMinted',
+			orderDirection: 'desc',
+		},
+		{
+			id: true,
+			collateralMinted: true,
+			amount: true,
+		}
+	);
+
+	const shortsQuery = subgraph.useGetShorts(
+		{
+			first: Number.MAX_SAFE_INTEGER,
+			where: { isOpen: true },
+			orderBy: 'collateralLockedAmount',
+			orderDirection: 'desc',
+		},
+		{
+			id: true,
+			collateralLocked: true,
+			collateralLockedAmount: true,
+			synthBorrowed: true,
+			synthBorrowedAmount: true,
+		}
+	);
+	const allLoaded =
+		synthsQuery.isSuccess &&
+		ratesQuery.isSuccess &&
+		wrappersQuery.isSuccess &&
+		loansQuery.isSuccess &&
+		shortsQuery.isSuccess;
+	return useQuery<any>(
+		['synths', 'totalSupply', ctx.networkId, allLoaded],
 		async () => {
+			console.log(loansQuery.error);
+			if (allLoaded) {
+				return allLoaded;
+			}
+
+			/* 		
 			const {
 				contracts: { SynthUtil, ExchangeRates, CollateralManagerState, EtherWrapper },
 			} = ctx.snxjs!;
@@ -178,10 +247,10 @@ const useSynthsTotalSupplyQuery = (
 					usdNegativeEntries,
 				},
 				synthTotalSupplies,
-			};
+			}; */
 		},
 		{
-			enabled: !!ctx.snxjs,
+			enabled: !!ctx,
 			...options,
 		}
 	);
