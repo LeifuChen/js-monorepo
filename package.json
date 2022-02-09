@@ -60,5 +60,8 @@
 	},
 	"dependencies": {
 		"bootstrap": "^5.1.0"
+	},
+	"resolutions": {
+		"react": "17.0.2"
 	}
 }
